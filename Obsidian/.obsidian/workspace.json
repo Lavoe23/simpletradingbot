@@ -8,63 +8,20 @@
         "type": "tabs",
         "children": [
           {
-            "id": "66155a94575b134f",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "_templates/Lecture Note.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "Lecture Note"
-            }
-          },
-          {
-            "id": "b0ef63b58da170f5",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Sin título.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "Sin título"
-            }
-          },
-          {
-            "id": "77efbe43a70db4f9",
-            "type": "leaf",
-            "state": {
-              "type": "split-diff-view",
-              "state": {
-                "aFile": "Obsidian/Sin título 1.md",
-                "bFile": "Obsidian/Sin título 1.md",
-                "aRef": ""
-              },
-              "icon": "diff",
-              "title": "Diff: Sin título 1  (Working Tree)"
-            }
-          },
-          {
             "id": "dc42467ecc5be398",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Sin título 1.md",
+                "file": "2026-05-10.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Sin título 1"
+              "title": "2026-05-10"
             }
           }
-        ],
-        "currentTab": 3
+        ]
       }
     ],
     "direction": "vertical"
@@ -219,7 +176,7 @@
             }
           }
         ],
-        "currentTab": 2
+        "currentTab": 5
       }
     ],
     "direction": "horizontal",
@@ -238,11 +195,13 @@
       "templater-obsidian:Templater": false
     }
   },
-  "active": "88f3f61a002dcc56",
+  "active": "dc42467ecc5be398",
   "lastOpenFiles": [
+    "2026-05-10.md",
+    "Sin título 1.md",
+    "_templates/Lecture Note.md",
     "Untitled.md",
     "Sin título.md",
-    "Sin título 1.md",
     "_templates/prueba.md",
     "prueba.md",
     "Untitled 1.md",
@@ -254,7 +213,6 @@
     "_templates/Concept Note Template.md",
     "_templates/Parcial Prep Note.md",
     "_templates/General Note.md",
-    "_templates/Lecture Note.md",
     "_templates/Link Concepts to Note.md",
     "Notas",
     "Sin título 4.md",
