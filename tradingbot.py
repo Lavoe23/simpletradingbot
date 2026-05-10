@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # 1. CONFIGURACIÓN
 SYMBOL = "BTC-USD"
 START_DATE = "2024-01-01"
-END_DATE = "2026-02-01"
+END_DATE = "2026-05-01"
 
 print(f"--- INICIANDO ANÁLISIS DE {SYMBOL} ---")
 print("Descargando datos de mercado...")
