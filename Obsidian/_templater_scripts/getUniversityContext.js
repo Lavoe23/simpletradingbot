@@ -1,19 +1,8 @@
 /*
-  getUniversityContext.js
-
-  Reusable Templater user script that infers academic context (subject & year)
-  from the current file's location inside the vault.
+  getUniversityContext.js - Versión Refactorizada para Mac e iOS (Ceteri Edition)
+  Eliminamos 'path' y 'requireScript' para usar la carga nativa de Templater.
 */
 
-const path = require("path");
-// Shared module loader — see scriptLoader.js for the resolution strategy.
-const requireScript = require(path.join(__dirname, "scriptLoader.js"));
-
-const getUniversityConfig = requireScript("universityConfig.js");
-const createUniversityNoteUtils = requireScript("universityNoteUtils.js");
-
-// Lazy-initialize shared state so the module is safe to require in test
-// environments where `app` may not yet be defined.
 let _initialized = false;
 let _GENERAL_LABEL;
 let _UNIVERSITY_ROOT;
@@ -21,10 +10,13 @@ let _IS_PARCIAL_ENABLED;
 let _normalizeParcial;
 let _normalizeYear;
 
-function init() {
+// Recibe 'tp' como argumento para acceder a otros scripts de usuario
+function init(tp) {
   if (_initialized) return;
 
-  const universityConfig = getUniversityConfig();
+  // IMPORTANTE: Cargamos los scripts usando la API de Templater
+  // Esto asume que universityConfig.js y universityNoteUtils.js están en la misma carpeta
+  const universityConfig = tp.user.universityConfig();
   const configLabels = universityConfig?.labels ?? {};
   const configFs = universityConfig?.fs ?? {};
 
@@ -44,19 +36,24 @@ function init() {
     throw new Error("University config must define fs.universityRoot.");
   }
 
-  // Mirror the features.parcial flag so context inference skips parcial path
-  // scanning when the feature is disabled.
   _IS_PARCIAL_ENABLED = universityConfig?.features?.parcial === true;
 
-  const utils = createUniversityNoteUtils();
+  // Cargamos utils desde Templater
+  const utils = tp.user.universityNoteUtils();
   _normalizeParcial = utils.normalizeParcial;
   _normalizeYear = utils.normalizeYear;
 
   _initialized = true;
 }
 
-function getUniversityContext(targetFile) {
-  init();
+/**
+ * Función principal.
+ * @param {object} tp - El objeto Templater (pásalo desde la nota)
+ * @param {TFile} targetFile - El archivo actual (app.workspace.getActiveFile())
+ */
+function getUniversityContext(tp, targetFile) {
+  // Inicializamos pasando el objeto tp
+  init(tp);
 
   const GENERAL_LABEL = _GENERAL_LABEL;
   const UNIVERSITY_ROOT = _UNIVERSITY_ROOT;
@@ -78,6 +75,8 @@ function getUniversityContext(targetFile) {
   const uniIndex = pathParts.findIndex((part = "") => part.toLowerCase() === universityRootLower);
 
   const relativeParts = uniIndex === -1 ? pathParts : pathParts.slice(uniIndex + 1);
+  
+  // Usamos la API global de Obsidian 'app' que sí funciona en Mac/iOS
   const frontmatterYear = app.metadataCache.getFileCache(targetFile)?.frontmatter?.year;
   const pathYearCandidate = relativeParts.find((part = "") => normalizeYear(part, { allowLiteral: false }));
   const year = normalizeYear(frontmatterYear) ?? normalizeYear(pathYearCandidate, { allowLiteral: false });
@@ -88,8 +87,6 @@ function getUniversityContext(targetFile) {
   const subjectCandidate = firstSegmentIsYear ? relativeParts[1] : relativeParts[0];
   const subject = subjectCandidate || GENERAL_LABEL;
 
-  // Only infer parcial from the file path when the feature is enabled;
-  // otherwise always return the general label to keep context clean.
   const searchParts = firstSegmentIsYear ? relativeParts.slice(1) : relativeParts;
   const parcialCandidate = IS_PARCIAL_ENABLED
     ? searchParts.find((part = "") => normalizeParcial(part) !== GENERAL_LABEL)
