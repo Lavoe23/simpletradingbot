@@ -7,11 +7,11 @@
       ""
     ]
   ],
-  "trigger_on_file_creation": false,
+  "trigger_on_file_creation": true,
   "auto_jump_to_cursor": false,
   "enable_system_commands": true,
   "shell_path": "",
-  "user_scripts_folder": "",
+  "user_scripts_folder": "_templater_scripts",
   "enable_folder_templates": false,
   "folder_templates": [
     {

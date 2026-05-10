@@ -183,7 +183,7 @@ function universityNoteUtils() {
 
   function ensureUniqueFileName(folderPath, baseName, extension = "md") {
     if (!folderPath) return baseName;
-    const normalizedBase = baseName?.trim() || "Untitled";
+    const normalizedBase = baseName?.trim() || "Sin título";
     let candidate = normalizedBase;
     let suffix = 1;
     while (app.vault.getAbstractFileByPath(`${folderPath}/${candidate}.${extension}`)) {

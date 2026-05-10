@@ -1,33 +1,37 @@
 <%*
-// Depends on: _templater_scripts/getUniversityContext.js, _templater_scripts/universityNoteUtils.js, _templater_scripts/universityConfig.js
-
-// --- 0. GUARD: must run on a fresh note ---
-// RunMode 0 (CreateNewFile) guarantees a brand-new file; skip the basename
-// check in that case.  For all other modes (hotkey on existing file, etc.)
-// we require the standard "Untitled" starting point.
-const currentFile = tp.config.target_file;
+// Forzamos a que no importe cómo se llame el archivo inicial
+const currentFile = tp.config.target_file || app.workspace.getActiveFile();
 if (!currentFile) {
-  new Notice("⛔️ Abort: Templater has no target file.", 10_000);
-  return;
+    new Notice("⛔️ Error: No se detectó archivo activo.", 5_000);
+    return;
 }
+// Eliminamos el chequeo de "Untitled" o "Sin título". 
+// Ya no nos importa cómo se llame al principio.
+%>
 
 const isCreatingNewFile = tp.config.run_mode === 0;
 if (!isCreatingNewFile) {
   const basename = currentFile.basename.toLowerCase();
-  if (!basename.startsWith("untitled") && !basename.startsWith("sin título")) {
-    new Notice("⛔️ Abort: Template must be run in a new 'Untitled' note.", 10_000);
-    return;
+  // Agregamos el chequeo para "sin título" y eliminamos el aborto estricto para evitar ENOENT
+  if (!basename.startsWith("untitled") && !basename.startsWith("sin título") && !basename.startsWith("nota nueva")) {
+    new Notice("⚠️ Warning: Running on a named file.", 5_000);
   }
 }
 
-// --- 1. LOAD UTILITIES ---
-const getConfig = tp.user.universityConfig;
-const config = typeof getConfig === "function" ? await getConfig() : null;
+// --- 1. LOAD UTILITIES (Refactorizado para Camilo/Ceteri) ---
+// Ahora pasamos 'tp' a los scripts como acordamos para evitar el error de undefined
+const config = tp.user.universityConfig();
 const configLabels = config?.labels ?? {};
 
-const context = await tp.user.getUniversityContext(currentFile);
+// Pasamos tp y el archivo actual al contexto
+const context = await tp.user.getUniversityContext(tp, currentFile);
 
-const noteUtils = await tp.user.universityNoteUtils();
+const noteUtils = tp.user.universityNoteUtils();
+if (!noteUtils) {
+  new Notice("⛔️ Abort: University note utilities are unavailable.", 10_000);
+  return;
+}
+
 const {
   ensureFolderPath,
   ensureUniqueFileName,
@@ -36,33 +40,18 @@ const {
   resolveSubjectParcialTema,
   constants = {},
   schema = {},
-} = noteUtils ?? {};
-
-if (!noteUtils) {
-  new Notice("⛔️ Abort: University note utilities are unavailable.", 10_000);
-  return;
-}
-
-if (!resolveSubjectParcialTema) {
-  new Notice("⛔️ Abort: Placement helper is unavailable.", 10_000);
-  return;
-}
+} = noteUtils;
 
 const generalLabel = constants?.general ?? configLabels.general;
-if (!generalLabel) {
-  new Notice("⛔️ Abort: University general label is not configured.", 10_000);
-  return;
-}
-
 const noteTypes = schema?.types ?? {};
 const lectureType = noteTypes.lecture ?? "lecture";
 const conceptType = noteTypes.concept ?? "concept";
-const codeLanguage = constants?.codeLanguage ?? "";
+const codeLanguage = constants?.codeLanguage ?? "cpp"; // Forzamos C++ para tus ramos
 
 const contextSubject = context?.subject ?? generalLabel;
 const contextYear = context?.year ?? tp.frontmatter?.year ?? null;
 
-// --- 2. RESOLVE PLACEMENT (shows year → subject → tema dialogs) ---
+// --- 2. RESOLVE PLACEMENT ---
 const placement = await resolveSubjectParcialTema(tp, {
   currentFile,
   contextSubject,
@@ -91,35 +80,29 @@ if (!targetFolder) {
 await ensureFolderPath(targetFolder);
 
 // --- 3. PROMPT FOR TOPIC ---
-// Pre-fill with any text the user had selected before running the template.
 const selectionDefault = tp.file.selection?.() ?? "";
 const topicInput = await tp.system.prompt(
-  "Lecture Topic (optional)",
+  "Tema de la Clase (opcional)",
   selectionDefault || null
 );
 const rawTopic = topicInput?.trim();
-const safeTopic = sanitizeFileName(rawTopic) || "Untitled Topic";
+const safeTopic = sanitizeFileName(rawTopic) || "Clase Nueva";
 
 const today = tp.date.now("YYYY-MM-DD");
-const baseTitle = sanitizeFileName(`Lecture ${today}`);
-const noteTitle = rawTopic ? sanitizeFileName(`${baseTitle} - ${safeTopic}`) : baseTitle;
+const baseTitle = `Lecture ${today}`;
+const noteTitle = rawTopic ? `${baseTitle} - ${safeTopic}` : baseTitle;
 const headingTitle = rawTopic ? safeTopic : noteTitle;
-const extension = currentFile?.extension ?? "md";
-const finalFileName = ensureUniqueFileName(targetFolder, noteTitle, extension);
-const destinationFilePath = `${targetFolder}/${finalFileName}.${extension}`;
-const destinationMovePath = `${targetFolder}/${finalFileName}`;
-const needsMove = currentFile?.path !== destinationFilePath;
 
-// --- 4. MULTI-SELECT CONCEPTS (tp.system.multi_suggester — Templater ≥ 2.16) ---
-// Discover concept notes already filed under the same course and offer
-// a multi-select so the student can tag which concepts this lecture covers.
-// Falls back gracefully when multi_suggester isn't available (older installs).
+const finalFileName = ensureUniqueFileName(targetFolder, noteTitle, "md");
+const destinationMovePath = `${targetFolder}/${finalFileName}`;
+
+// --- 4. MULTI-SELECT CONCEPTS ---
 let conceptLinks = [];
 if (typeof tp.system.multi_suggester === "function") {
-  const allFiles = tp.app.vault.getMarkdownFiles?.() ?? [];
+  const allFiles = app.vault.getMarkdownFiles();
   const conceptFiles = allFiles
     .filter((f) => {
-      const cache = tp.app.metadataCache.getFileCache(f);
+      const cache = app.metadataCache.getFileCache(f);
       return (
         cache?.frontmatter?.type === conceptType &&
         cache?.frontmatter?.course === subject
@@ -132,7 +115,7 @@ if (typeof tp.system.multi_suggester === "function") {
       conceptFiles.map((f) => f.basename),
       conceptFiles,
       false,
-      "Concepts covered in this lecture (multi-select, optional)"
+      "Conceptos cubiertos (opcional)"
     );
     if (Array.isArray(picked) && picked.length > 0) {
       conceptLinks = picked.map((f) => `"[[${f.basename}]]"`);
@@ -143,57 +126,51 @@ if (typeof tp.system.multi_suggester === "function") {
 // --- 5. BUILD CONTENT ---
 const subjectSlug = toSlug(subject);
 const temaSlug = toSlug(tema);
-const lectureTags =
-  [
-    subjectSlug && `#${subjectSlug}`,
-    temaSlug && temaSlug !== subjectSlug ? `#${temaSlug}` : null,
-    "#lecture",
-  ]
-    .filter(Boolean)
-    .join(" ");
+const lectureTags = `#${subjectSlug} #lecture`;
 const alias = JSON.stringify(headingTitle);
-const created = today;
-const conceptsLine =
-  conceptLinks.length > 0 ? `concepts: [${conceptLinks.join(", ")}]` : "concepts: []";
+const conceptsLine = conceptLinks.length > 0 ? `concepts: [${conceptLinks.join(", ")}]` : "concepts: []";
 
-const frontMatter = [
-  "---",
-  `type: ${lectureType}`,
-  `course: ${JSON.stringify(subject)}`,
-  year ? `year: ${JSON.stringify(year)}` : null,
-  `tema: ${JSON.stringify(tema)}`,
-  `created: ${JSON.stringify(created)}`,
-  "status: draft",
-  `aliases: [${alias}]`,
-  conceptsLine,
-  "---",
-]
-  .filter(Boolean)
-  .join("\n");
+let content = `---
+type: ${lectureType}
+course: ${JSON.stringify(subject)}
+year: ${JSON.stringify(year)}
+tema: ${JSON.stringify(tema)}
+created: ${today}
+status: draft
+aliases: [${alias}]
+${conceptsLine}
+---
 
-// Multiple cursors allow Tab-key navigation between the most-edited sections:
-//   cursor(1) → first Summary takeaway  (filled during/right after the lecture)
-//   cursor(2) → first Definition entry  (terminology captured live)
-//   cursor(3) → Questions section       (open questions noted at the end)
-let content = `${frontMatter}\n`;
-content += lectureTags ? `${lectureTags}\n\n` : "";
-content += `# 🧠 ${headingTitle}\n\n`;
-content += `## 📜 Summary\n- [ ] ${tp.file.cursor(1)}\n- [ ] Key takeaway 2\n\n`;
-content += `## 📚 Definitions\n- [ ] ${tp.file.cursor(2)} :: Definition\n\n`;
-content += "## 🧩 Key Concepts\n- [ ] Concept :: Insight\n\n";
-content += "## 💡 Examples or Code\n";
-content += `\`\`\`${codeLanguage}\n`;
-content += `// ${safeTopic}\n`;
-content += "```\n\n";
-content += "## 🧭 Explanation in My Own Words\n- [ ] Insight\n\n";
-content += "## 🔗 Connections\n- [ ] Related topic\n\n";
-content += `## 🧠 Questions I Still Have\n- [ ] ${tp.file.cursor(3)}\n`;
+${lectureTags}
+
+# 🧠 ${headingTitle}
+
+## 📜 Resumen
+- [ ] ${tp.file.cursor(1)}
+
+## 💻 Código (${codeLanguage})
+\`\`\`${codeLanguage}
+// ${safeTopic}
+\`\`\`
+
+## 🧠 Preguntas / Dudas
+- [ ] ${tp.file.cursor(2)}
+`;
 
 tR = content;
 
 // --- 6. PLACE FILE ---
-if (needsMove) {
-  await tp.file.move(destinationMovePath);
-}
-new Notice(`📘 Lecture stored in ${targetFolder}`, 5_000);
+<%*
+// Usamos un pequeño delay de 100ms para que el sistema de archivos de Mac 
+// se estabilice antes de mover la nota.
+setTimeout(async () => {
+    try {
+        await tp.file.move(destinationMovePath);
+        new Notice(`📘 Clase guardada en ${targetFolder}`, 5_000);
+    } catch (e) {
+        console.log("Error en el move, reintentando...", e);
+        // Fallback: si falla el move, al menos renombramos
+        await tp.file.rename(finalFileName);
+    }
+}, 100);
 %>
