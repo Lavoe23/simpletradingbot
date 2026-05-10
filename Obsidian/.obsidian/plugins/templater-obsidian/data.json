@@ -1,17 +1,17 @@
 {
   "command_timeout": 5,
-  "templates_folder": "_templates",
+  "templates_folder": "",
   "templates_pairs": [
     [
       "",
       ""
     ]
   ],
-  "trigger_on_file_creation": true,
+  "trigger_on_file_creation": false,
   "auto_jump_to_cursor": false,
   "enable_system_commands": true,
   "shell_path": "",
-  "user_scripts_folder": "_templater_scripts",
+  "user_scripts_folder": "",
   "enable_folder_templates": false,
   "folder_templates": [
     {
